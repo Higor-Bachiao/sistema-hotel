@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS rooms (
+    id VARCHAR(255) PRIMARY KEY,
+    number VARCHAR(50) NOT NULL UNIQUE,
+    type VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL,
+    beds INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    amenities JSON, -- ou TEXT se não quiser JSON
+    status VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS guests (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(50),
+    cpf VARCHAR(20) UNIQUE,
+    check_in DATE NOT NULL,
+    check_out DATE NOT NULL,
+    num_guests INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reservations (
+    id VARCHAR(255) PRIMARY KEY,
+    room_id VARCHAR(255) NOT NULL,
+    guest_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (room_id) REFERENCES rooms(id),
+    FOREIGN KEY (guest_id) REFERENCES guests(id)
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    guest_id VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    value DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (guest_id) REFERENCES guests(id)
+);

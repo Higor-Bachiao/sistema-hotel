@@ -1,0 +1,5 @@
+# Fallback para SPA
+/*    /index.html   200
+
+# API routes (se houver)
+/api/*  /api/index.html  200
