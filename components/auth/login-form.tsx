@@ -63,7 +63,7 @@ export default function LoginForm() {
           <div className="mx-auto w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mb-4">
             <Hotel className="w-6 h-6 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold">Hotel Management</CardTitle>
+          <CardTitle className="text-2xl font-bold">Hotel Joao Luzia</CardTitle>
           <CardDescription>Sistema de gerenciamento hoteleiro</CardDescription>
         </CardHeader>
 

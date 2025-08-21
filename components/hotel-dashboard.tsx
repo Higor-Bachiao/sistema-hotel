@@ -54,7 +54,7 @@ export default function HotelDashboard() {
           <p className="text-gray-600">
             Bem-vindo, {user?.name}!{user?.role === "admin" && " (Administrador)"}
             {user?.role === "staff" && " (Funcionário)"}
-            {user?.role === "guest" && " (Hóspede)"}
+            {user?.role === "guest" }
           </p>
         </div>
 
