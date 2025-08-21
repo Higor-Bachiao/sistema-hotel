@@ -1,9 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import type { Room, Reservation, HotelFilters, HotelStatistics, Expense, Guest } from "@/types/hotel"
 import { getNumberOfNights } from "@/lib/price-utils"
-import { HotelAPI } from "@/lib/hotel-api"
 
 // Nova interface para histórico de hóspedes
 interface GuestHistory {
@@ -37,24 +36,521 @@ interface HotelContextType {
   cancelFutureReservation: (reservationId: string) => void
   guestHistory: GuestHistory[]
   getGuestHistory: () => GuestHistory[]
-  deleteGuestHistory: (historyId: string) => void
-  isLoading: boolean
-  error: string | null
-  lastSync: Date | null
-  syncData: () => Promise<void>
+  deleteGuestHistory: (historyId: string) => void // Nova função
 }
 
 const HotelContext = createContext<HotelContextType | undefined>(undefined)
 
+// Mock data (mantido igual)
+const initialRooms: Room[] = [
+  // 1º Andar
+  {
+    id: "1",
+    number: "101",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "2",
+    number: "102",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "3",
+    number: "103",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "4",
+    number: "104",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+
+  // 2º Andar
+  {
+    id: "5",
+    number: "201",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "6",
+    number: "202",
+    type: "Triplo",
+    capacity: 3,
+    beds: 2,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "7",
+    number: "203",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "8",
+    number: "204",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "9",
+    number: "205",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "10",
+    number: "206",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "11",
+    number: "207",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "12",
+    number: "208",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "13",
+    number: "209",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "14",
+    number: "210",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+
+  // 3º Andar
+  {
+    id: "15",
+    number: "301",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "16",
+    number: "302",
+    type: "Triplo",
+    capacity: 3,
+    beds: 2,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "17",
+    number: "303",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "18",
+    number: "304",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "19",
+    number: "305",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "20",
+    number: "306",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "21",
+    number: "307",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "22",
+    number: "308",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "23",
+    number: "309",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "24",
+    number: "310",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+
+  // 4º Andar
+  {
+    id: "25",
+    number: "401",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "26",
+    number: "402",
+    type: "Triplo",
+    capacity: 3,
+    beds: 2,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "27",
+    number: "403",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "28",
+    number: "404",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "29",
+    number: "405",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "30",
+    number: "406",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "31",
+    number: "407",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "32",
+    number: "408",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "33",
+    number: "409",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "34",
+    number: "410",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+
+  // 5º Andar
+  {
+    id: "35",
+    number: "501",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "36",
+    number: "502",
+    type: "Triplo",
+    capacity: 3,
+    beds: 2,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "37",
+    number: "503",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+  {
+    id: "38",
+    number: "504",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "39",
+    number: "505",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "40",
+    number: "506",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "41",
+    number: "507",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "42",
+    number: "508",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "43",
+    number: "509",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "44",
+    number: "510",
+    type: "Casal com AR",
+    capacity: 2,
+    beds: 1,
+    price: 149,
+    amenities: ["wifi", "tv", "ar-condicionado"],
+    status: "available",
+  },
+
+  // 6º Andar
+  {
+    id: "45",
+    number: "601",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "46",
+    number: "602",
+    type: "Solteiro",
+    capacity: 1,
+    beds: 1,
+    price: 100,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "47",
+    number: "603",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "48",
+    number: "604",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+  {
+    id: "49",
+    number: "605",
+    type: "Casal",
+    capacity: 2,
+    beds: 1,
+    price: 120,
+    amenities: ["wifi", "tv"],
+    status: "available",
+  },
+]
+
 export function HotelProvider({ children }: { children: ReactNode }) {
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [filteredRooms, setFilteredRooms] = useState<Room[]>([])
+  const [rooms, setRooms] = useState<Room[]>(initialRooms)
+  const [filteredRooms, setFilteredRooms] = useState<Room[]>(initialRooms)
   const [futureReservations, setFutureReservations] = useState<Reservation[]>([])
   const [guestHistory, setGuestHistory] = useState<GuestHistory[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [lastSync, setLastSync] = useState<Date | null>(null)
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [filters, setFilters] = useState<HotelFilters>({
     type: "",
     status: "",
@@ -62,119 +558,108 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     maxPrice: 1000,
   })
 
-  // 🔄 Função para sincronizar dados
-  const syncData = async () => {
-    try {
-      console.log("🔄 Sincronizando dados...")
-
-      // Carregar quartos
-      const roomsFromDB = await HotelAPI.getAllRooms()
-      setRooms(roomsFromDB)
-
-      // Carregar reservas futuras
-      try {
-        const reservationsFromDB = await HotelAPI.getFutureReservations()
-        setFutureReservations(reservationsFromDB)
-      } catch (reservationError) {
-        console.warn("⚠️ Erro ao carregar reservas futuras:", reservationError)
-      }
-
-      setLastSync(new Date())
-      setError(null)
-      console.log("✅ Sincronização concluída")
-    } catch (error: any) {
-      console.error("❌ Erro na sincronização:", error)
-      setError(`Erro de sincronização: ${error.message}`)
-    }
-  }
-
-  // 🔄 Carregar dados do banco na inicialização
   useEffect(() => {
-    const loadDataFromDatabase = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
+    const storedRooms = localStorage.getItem("hotel_rooms")
+    const storedReservations = localStorage.getItem("hotel_future_reservations")
+    const storedHistory = localStorage.getItem("hotel_guest_history")
 
-        console.log("🔍 Carregando dados iniciais...")
-
-        // Primeira sincronização
-        await syncData()
-
-        // Carregar histórico do localStorage (por enquanto)
-        const storedHistory = localStorage.getItem("hotel_guest_history")
-        if (storedHistory) {
-          const parsedHistory = JSON.parse(storedHistory)
-          setGuestHistory(parsedHistory)
-          console.log(`✅ ${parsedHistory.length} registros de histórico carregados`)
-        }
-      } catch (error: any) {
-        console.error("❌ Erro ao carregar dados do banco:", error)
-        setError(`Erro ao conectar com o banco: ${error.message}`)
-
-        // Fallback para localStorage
-        console.log("🔄 Tentando carregar do localStorage...")
-        const storedRooms = localStorage.getItem("hotel_rooms")
-        if (storedRooms) {
-          const parsedRooms = JSON.parse(storedRooms)
-          setRooms(parsedRooms)
-          console.log("✅ Dados carregados do localStorage")
-        }
-      } finally {
-        setIsLoading(false)
-      }
+    if (storedRooms) {
+      const parsedRooms = JSON.parse(storedRooms)
+      setRooms(parsedRooms)
+      setFilteredRooms(parsedRooms)
     }
 
-    loadDataFromDatabase()
+    if (storedReservations) {
+      const parsedReservations = JSON.parse(storedReservations)
+      setFutureReservations(parsedReservations)
+    }
+
+    if (storedHistory) {
+      const parsedHistory = JSON.parse(storedHistory)
+      setGuestHistory(parsedHistory)
+    }
+
+    // Verificar se alguma reserva futura deve ser ativada hoje
+    checkAndActivateFutureReservations()
   }, [])
 
-  // 🔄 Configurar sincronização automática a cada 10 segundos
   useEffect(() => {
-    if (!isLoading && !error) {
-      console.log("⏰ Iniciando sincronização automática (10s)")
+    localStorage.setItem("hotel_rooms", JSON.stringify(rooms))
+  }, [rooms])
 
-      syncIntervalRef.current = setInterval(async () => {
-        await syncData()
-      }, 10000) // 10 segundos
-
-      // Cleanup
-      return () => {
-        if (syncIntervalRef.current) {
-          clearInterval(syncIntervalRef.current)
-          console.log("⏹️ Sincronização automática parada")
-        }
-      }
-    }
-  }, [isLoading, error])
-
-  // 🔄 Sincronizar quando a aba volta ao foco
   useEffect(() => {
-    const handleFocus = () => {
-      console.log("👁️ Aba voltou ao foco - sincronizando...")
-      syncData()
-    }
+    localStorage.setItem("hotel_future_reservations", JSON.stringify(futureReservations))
+  }, [futureReservations])
 
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log("👁️ Página ficou visível - sincronizando...")
-        syncData()
-      }
-    }
-
-    window.addEventListener("focus", handleFocus)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-
-    return () => {
-      window.removeEventListener("focus", handleFocus)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [])
-
-  // 💾 Backup no localStorage (apenas para histórico)
   useEffect(() => {
     localStorage.setItem("hotel_guest_history", JSON.stringify(guestHistory))
   }, [guestHistory])
 
-  // 📊 Aplicar filtros
+  // Função para adicionar ao histórico
+  const addToGuestHistory = (guest: Guest, roomId: string, status: "active" | "completed" | "cancelled" = "active") => {
+    const room = rooms.find((r) => r.id === roomId)
+    if (!room) return
+
+    const nights = getNumberOfNights(guest.checkIn, guest.checkOut)
+    const totalPrice =
+      room.price * guest.guests * nights + (guest.expenses?.reduce((sum, exp) => sum + exp.value, 0) || 0)
+
+    const historyEntry: GuestHistory = {
+      id: Date.now().toString(),
+      guest,
+      roomNumber: room.number,
+      roomType: room.type,
+      checkInDate: guest.checkIn,
+      checkOutDate: guest.checkOut,
+      totalPrice,
+      status,
+      createdAt: new Date().toISOString(),
+    }
+
+    setGuestHistory((prev) => [historyEntry, ...prev]) // Adicionar no início (mais recente primeiro)
+  }
+
+  // Função para verificar e ativar reservas futuras que chegaram na data
+  const checkAndActivateFutureReservations = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    setFutureReservations((prevReservations) => {
+      const reservationsToActivate = prevReservations.filter((reservation) => {
+        const checkInDate = new Date(reservation.guest.checkIn)
+        checkInDate.setHours(0, 0, 0, 0)
+        return checkInDate <= today
+      })
+
+      // Ativar as reservas que chegaram na data
+      reservationsToActivate.forEach((reservation) => {
+        setRooms((prevRooms) =>
+          prevRooms.map((room) =>
+            room.id === reservation.roomId
+              ? {
+                  ...room,
+                  status: "occupied",
+                  guest: {
+                    ...reservation.guest,
+                    expenses: [],
+                  },
+                }
+              : room,
+          ),
+        )
+        // Adicionar ao histórico quando ativar
+        addToGuestHistory(reservation.guest, reservation.roomId, "active")
+      })
+
+      // Remover as reservas ativadas da lista de futuras
+      return prevReservations.filter((reservation) => {
+        const checkInDate = new Date(reservation.guest.checkIn)
+        checkInDate.setHours(0, 0, 0, 0)
+        return checkInDate > today
+      })
+    })
+  }
+
   useEffect(() => {
     let filtered = rooms
 
@@ -203,31 +688,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     setFilteredRooms(filtered)
   }, [rooms, filters])
 
-  // 📝 Função para adicionar ao histórico
-  const addToGuestHistory = (guest: Guest, roomId: string, status: "active" | "completed" | "cancelled" = "active") => {
-    const room = rooms.find((r) => r.id === roomId)
-    if (!room) return
-
-    const nights = getNumberOfNights(guest.checkIn, guest.checkOut)
-    const totalPrice =
-      room.price * guest.guests * nights + (guest.expenses?.reduce((sum, exp) => sum + exp.value, 0) || 0)
-
-    const historyEntry: GuestHistory = {
-      id: Date.now().toString(),
-      guest,
-      roomNumber: room.number,
-      roomType: room.type,
-      checkInDate: guest.checkIn,
-      checkOutDate: guest.checkOut,
-      totalPrice,
-      status,
-      createdAt: new Date().toISOString(),
-    }
-
-    setGuestHistory((prev) => [historyEntry, ...prev])
-  }
-
-  // 🔍 Funções de busca e filtro
   const clearFilters = () => {
     setFilters({
       type: "",
@@ -253,215 +713,130 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     setFilteredRooms(filtered)
   }
 
-  // 🏨 Funções de gerenciamento de quartos
-  const addRoom = async (room: Omit<Room, "id" | "status" | "guest">) => {
-    try {
-      setError(null)
-      console.log("🏨 Adicionando novo quarto:", room)
-
-      const result = await HotelAPI.createRoom({
-        ...room,
-        status: "available",
-      })
-
-      // Sincronizar imediatamente após criar
-      await syncData()
-
-      console.log("✅ Quarto adicionado com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao adicionar quarto:", error)
-      setError(`Erro ao adicionar quarto: ${error.message}`)
-      throw error
+  const addRoom = (room: Omit<Room, "id" | "status" | "guest">) => {
+    const newRoom: Room = {
+      ...room,
+      id: Date.now().toString(),
+      status: "available",
     }
+    setRooms((prev) => [...prev, newRoom])
   }
 
-  const updateRoom = async (roomId: string, updates: Partial<Room>) => {
-    try {
-      setError(null)
-      console.log("🔄 Atualizando quarto:", roomId, updates)
-
-      await HotelAPI.updateRoom(roomId, updates)
-
-      // Sincronizar imediatamente após atualizar
-      await syncData()
-
-      console.log("✅ Quarto atualizado com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao atualizar quarto:", error)
-      setError(`Erro ao atualizar quarto: ${error.message}`)
-      throw error
-    }
+  const updateRoom = (roomId: string, updates: Partial<Room>) => {
+    setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, ...updates } : room)))
   }
 
-  const deleteRoom = async (roomId: string) => {
-    try {
-      setError(null)
-      console.log("🗑️ Deletando quarto:", roomId)
-
-      await HotelAPI.deleteRoom(roomId)
-
-      // Sincronizar imediatamente após deletar
-      await syncData()
-
-      console.log("✅ Quarto deletado com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao deletar quarto:", error)
-      setError(`Erro ao deletar quarto: ${error.message}`)
-      throw error
-    }
+  const deleteRoom = (roomId: string) => {
+    setRooms((prev) => prev.filter((room) => room.id !== roomId))
+    // Também remover reservas futuras para este quarto
+    setFutureReservations((prev) => prev.filter((reservation) => reservation.roomId !== roomId))
   }
 
-  const checkoutRoom = async (roomId: string) => {
-    try {
-      setError(null)
-      console.log("🚪 Fazendo checkout do quarto:", roomId)
-
-      // Encontrar o quarto antes de fazer checkout
-      const room = rooms.find((r) => r.id === roomId)
-      if (room && room.guest) {
-        // Atualizar status no histórico para "completed"
-        setGuestHistory((prev) =>
-          prev.map((entry) =>
-            entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active"
-              ? { ...entry, status: "completed" }
-              : entry,
-          ),
-        )
-      }
-
-      await HotelAPI.updateRoomStatus(roomId, "available")
-
-      // Sincronizar imediatamente após checkout
-      await syncData()
-
-      console.log("✅ Checkout realizado com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao fazer checkout:", error)
-      setError(`Erro ao fazer checkout: ${error.message}`)
-      throw error
-    }
-  }
-
-  // 📅 Funções de reserva
-  const makeReservation = async (reservation: Omit<Reservation, "id" | "createdAt">) => {
-    try {
-      setError(null)
-      console.log("📅 Fazendo reserva:", reservation)
-
-      await HotelAPI.createReservation(reservation)
-
-      // Sincronizar imediatamente após fazer reserva
-      await syncData()
-
-      // Adicionar ao histórico
-      addToGuestHistory(reservation.guest, reservation.roomId, "active")
-
-      console.log("✅ Reserva realizada com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao fazer reserva:", error)
-      setError(`Erro ao fazer reserva: ${error.message}`)
-      throw error
-    }
-  }
-
-  const cancelFutureReservation = async (reservationId: string) => {
-    try {
-      setError(null)
-      console.log("❌ Cancelando reserva:", reservationId)
-
-      // Encontrar a reserva antes de cancelar
-      const reservation = futureReservations.find((r) => r.id === reservationId)
-      if (reservation) {
-        // Atualizar status no histórico para "cancelled"
-        setGuestHistory((prev) =>
-          prev.map((entry) =>
-            entry.guest.name === reservation.guest.name &&
-            entry.checkInDate === reservation.guest.checkIn &&
-            entry.status === "active"
-              ? { ...entry, status: "cancelled" }
-              : entry,
-          ),
-        )
-      }
-
-      await HotelAPI.cancelReservation(reservationId)
-
-      // Sincronizar imediatamente após cancelar
-      await syncData()
-
-      console.log("✅ Reserva cancelada com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao cancelar reserva:", error)
-      setError(`Erro ao cancelar reserva: ${error.message}`)
-      throw error
-    }
-  }
-
-  // 💰 Função de despesas
-  const addExpenseToRoom = async (roomId: string, expense: Expense) => {
-    try {
-      setError(null)
-      console.log("💰 Adicionando despesa:", roomId, expense)
-
-      const room = rooms.find((r) => r.id === roomId)
-      if (!room?.guest) {
-        throw new Error("Quarto não tem hóspede ativo")
-      }
-
-      // Por enquanto, vamos simular um guestId
-      const guestId = `guest_${roomId}_${Date.now()}`
-
-      // Adicionar no banco (quando implementarmos)
-      // await HotelAPI.addExpense(guestId, expense)
-
-      // Atualizar localmente
-      setRooms((prevRooms) =>
-        prevRooms.map((room) => {
-          if (room.id === roomId && room.guest) {
-            const updatedRoom = {
-              ...room,
-              guest: {
-                ...room.guest,
-                expenses: [...(room.guest.expenses || []), expense],
-              },
-            }
-
-            // Atualizar também no histórico
-            setGuestHistory((prevHistory) =>
-              prevHistory.map((entry) =>
-                entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active"
-                  ? {
-                      ...entry,
-                      totalPrice: entry.totalPrice + expense.value,
-                      guest: {
-                        ...entry.guest,
-                        expenses: [...(entry.guest.expenses || []), expense],
-                      },
-                    }
-                  : entry,
-              ),
-            )
-
-            return updatedRoom
-          }
-          return room
-        }),
+  const checkoutRoom = (roomId: string) => {
+    // Encontrar o quarto antes de fazer checkout
+    const room = rooms.find((r) => r.id === roomId)
+    if (room && room.guest) {
+      // Atualizar status no histórico para "completed"
+      setGuestHistory((prev) =>
+        prev.map((entry) =>
+          entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active"
+            ? { ...entry, status: "completed" }
+            : entry,
+        ),
       )
-
-      console.log("✅ Despesa adicionada com sucesso")
-    } catch (error: any) {
-      console.error("❌ Erro ao adicionar despesa:", error)
-      setError(`Erro ao adicionar despesa: ${error.message}`)
-      throw error
     }
+
+    setRooms((prev) =>
+      prev.map((room) => (room.id === roomId ? { ...room, status: "available", guest: undefined } : room)),
+    )
+    // Também remover da lista de reservas futuras se existir
+    setFutureReservations((prev) => prev.filter((reservation) => reservation.roomId !== roomId))
   }
 
-  // 📊 Funções de estatísticas
+  const makeReservation = async (reservation: Omit<Reservation, "id" | "createdAt">) => {
+    // Simular delay de API
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const checkInDate = new Date(reservation.guest.checkIn)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    checkInDate.setHours(0, 0, 0, 0)
+
+    const newReservation: Reservation = {
+      id: Date.now().toString(),
+      roomId: reservation.roomId,
+      guest: reservation.guest,
+      createdAt: new Date().toISOString(),
+    }
+
+    if (checkInDate <= today) {
+      // Reserva para hoje ou passado - ocupar o quarto imediatamente
+      setRooms((prev) =>
+        prev.map((room) =>
+          room.id === reservation.roomId
+            ? {
+                ...room,
+                status: "occupied",
+                guest: {
+                  ...reservation.guest,
+                  expenses: [],
+                },
+              }
+            : room,
+        ),
+      )
+      // Adicionar ao histórico imediatamente
+      addToGuestHistory(reservation.guest, reservation.roomId, "active")
+    } else {
+      // Reserva futura - adicionar à lista de reservas futuras, quarto continua disponível
+      setFutureReservations((prev) => [...prev, newReservation])
+      // Adicionar ao histórico como reserva futura
+      addToGuestHistory(reservation.guest, reservation.roomId, "active")
+    }
+
+    console.log("Reservation confirmed, email sent to:", reservation.guest.email)
+  }
+
+  const addExpenseToRoom = (roomId: string, expense: Expense) => {
+    setRooms((prevRooms) =>
+      prevRooms.map((room) => {
+        if (room.id === roomId && room.guest) {
+          const updatedRoom = {
+            ...room,
+            guest: {
+              ...room.guest,
+              expenses: [...(room.guest.expenses || []), expense],
+            },
+          }
+
+          // Atualizar também no histórico
+          setGuestHistory((prevHistory) =>
+            prevHistory.map((entry) =>
+              entry.roomNumber === room.number && entry.guest.name === room.guest?.name && entry.status === "active"
+                ? {
+                    ...entry,
+                    totalPrice: entry.totalPrice + expense.value,
+                    guest: {
+                      ...entry.guest,
+                      expenses: [...(entry.guest.expenses || []), expense],
+                    },
+                  }
+                : entry,
+            ),
+          )
+
+          return updatedRoom
+        }
+        return room
+      }),
+    )
+  }
+
   const getStatistics = (): HotelStatistics => {
     const totalRooms = rooms.length
     const occupiedRooms = rooms.filter((room) => room.status === "occupied").length
     const availableRooms = rooms.filter((room) => room.status === "available").length
-    const reservedRooms = futureReservations.length
+    const reservedRooms = futureReservations.length // Usar a lista de reservas futuras
     const maintenanceRooms = rooms.filter((room) => room.status === "maintenance").length
 
     const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0
@@ -500,6 +875,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   }
 
   const getFutureReservations = (): Room[] => {
+    // Criar objetos Room virtuais para as reservas futuras
     return futureReservations
       .map((reservation) => {
         const room = rooms.find((r) => r.id === reservation.roomId)
@@ -514,10 +890,30 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       .filter(Boolean) as Room[]
   }
 
+  const cancelFutureReservation = (reservationId: string) => {
+    // Encontrar a reserva antes de cancelar
+    const reservation = futureReservations.find((r) => r.id === reservationId)
+    if (reservation) {
+      // Atualizar status no histórico para "cancelled"
+      setGuestHistory((prev) =>
+        prev.map((entry) =>
+          entry.guest.name === reservation.guest.name &&
+          entry.checkInDate === reservation.guest.checkIn &&
+          entry.status === "active"
+            ? { ...entry, status: "cancelled" }
+            : entry,
+        ),
+      )
+    }
+
+    setFutureReservations((prev) => prev.filter((reservation) => reservation.id !== reservationId))
+  }
+
   const getGuestHistory = (): GuestHistory[] => {
     return guestHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }
 
+  // Nova função para deletar do histórico
   const deleteGuestHistory = (historyId: string) => {
     setGuestHistory((prev) => prev.filter((entry) => entry.id !== historyId))
   }
@@ -543,11 +939,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
         cancelFutureReservation,
         guestHistory,
         getGuestHistory,
-        deleteGuestHistory,
-        isLoading,
-        error,
-        lastSync,
-        syncData,
+        deleteGuestHistory, // Nova função exportada
       }}
     >
       {children}
