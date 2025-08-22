@@ -20,48 +20,70 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Usuários mock - simples e direto
-const mockUsers = [
-  {
-    id: "1",
-    name: "Administrador",
-    email: "admin@hotel.com",
-    password: "admin123",
-    role: "admin" as const,
-    phone: "(11) 99999-9999",
-  },
-  {
-    id: "2",
-    name: "Funcionário",
-    email: "staff@hotel.com",
-    password: "staff123",
-    role: "staff" as const,
-    phone: "(11) 88888-8888",
-  },
-  {
-    id: "3",
-    name: "Hóspede",
-    email: "guest@hotel.com",
-    password: "guest123",
-    role: "guest" as const,
-    phone: "(11) 77777-7777",
-  },
-]
+// 🔧 CORREÇÃO: Usuários mock salvos no localStorage para persistência
+const getStoredUsers = () => {
+  if (typeof window === "undefined") return []
+
+  const stored = localStorage.getItem("hotel_users")
+  if (stored) {
+    return JSON.parse(stored)
+  }
+
+  // Usuários padrão se não existir nada
+  const defaultUsers = [
+    {
+      id: "1",
+      name: "Administrador",
+      email: "admin@hotel.com",
+      password: "admin123",
+      role: "admin" as const,
+      phone: "(11) 99999-9999",
+    },
+    {
+      id: "2",
+      name: "Funcionário",
+      email: "staff@hotel.com",
+      password: "staff123",
+      role: "staff" as const,
+      phone: "(11) 88888-8888",
+    },
+    {
+      id: "3",
+      name: "Hóspede",
+      email: "guest@hotel.com",
+      password: "guest123",
+      role: "guest" as const,
+      phone: "(11) 77777-7777",
+    },
+  ]
+
+  // Salvar usuários padrão
+  localStorage.setItem("hotel_users", JSON.stringify(defaultUsers))
+  return defaultUsers
+}
+
+const saveUsers = (users: any[]) => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("hotel_users", JSON.stringify(users))
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    // Verificar se há usuário salvo
-    const savedUser = localStorage.getItem("hotel_user")
+    // 🔧 CORREÇÃO: Verificar se há usuário salvo no localStorage
+    const savedUser = localStorage.getItem("hotel_current_user")
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser)
         setUser(userData)
         setIsAuthenticated(true)
+        console.log("✅ Usuário restaurado do localStorage:", userData.email)
       } catch (error) {
-        localStorage.removeItem("hotel_user")
+        console.error("❌ Erro ao restaurar usuário:", error)
+        localStorage.removeItem("hotel_current_user")
       }
     }
   }, [])
@@ -70,14 +92,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Simular delay da API
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // Buscar usuário
-    const foundUser = mockUsers.find((u) => u.email === email && u.password === password)
+    // 🔧 CORREÇÃO: Buscar usuários do localStorage
+    const users = getStoredUsers()
+    const foundUser = users.find((u: any) => u.email === email && u.password === password)
 
     if (foundUser) {
       const { password: _, ...userWithoutPassword } = foundUser
       setUser(userWithoutPassword)
       setIsAuthenticated(true)
-      localStorage.setItem("hotel_user", JSON.stringify(userWithoutPassword))
+
+      // 🔧 CORREÇÃO: Salvar usuário atual no localStorage
+      localStorage.setItem("hotel_current_user", JSON.stringify(userWithoutPassword))
+      console.log("✅ Login realizado com sucesso:", userWithoutPassword.email)
     } else {
       throw new Error("Email ou senha incorretos")
     }
@@ -86,8 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (userData: Omit<User, "id" | "role"> & { password: string }) => {
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // Verificar se já existe
-    const exists = mockUsers.find((u) => u.email === userData.email)
+    // 🔧 CORREÇÃO: Verificar se já existe no localStorage
+    const users = getStoredUsers()
+    const exists = users.find((u: any) => u.email === userData.email)
     if (exists) {
       throw new Error("Este email já está cadastrado")
     }
@@ -100,15 +127,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       phone: userData.phone,
     }
 
+    // 🔧 CORREÇÃO: Adicionar novo usuário ao localStorage
+    const newUserWithPassword = { ...newUser, password: userData.password }
+    const updatedUsers = [...users, newUserWithPassword]
+    saveUsers(updatedUsers)
+
     setUser(newUser)
     setIsAuthenticated(true)
-    localStorage.setItem("hotel_user", JSON.stringify(newUser))
+
+    // 🔧 CORREÇÃO: Salvar usuário atual no localStorage
+    localStorage.setItem("hotel_current_user", JSON.stringify(newUser))
+    console.log("✅ Usuário registrado com sucesso:", newUser.email)
   }
 
   const logout = () => {
     setUser(null)
     setIsAuthenticated(false)
-    localStorage.removeItem("hotel_user")
+
+    // 🔧 CORREÇÃO: Remover usuário atual do localStorage
+    localStorage.removeItem("hotel_current_user")
+    console.log("✅ Logout realizado com sucesso")
   }
 
   return (
