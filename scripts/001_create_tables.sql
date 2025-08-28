@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS rooms (
     type VARCHAR(50) NOT NULL,
     capacity INT NOT NULL,
     beds INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    amenities JSON, -- ou TEXT se não quiser JSON
+    price NUMERIC(10, 2) NOT NULL,
+    amenities JSONB, -- melhor usar JSONB no Postgres
     status VARCHAR(50) NOT NULL
 );
 
@@ -24,16 +24,17 @@ CREATE TABLE IF NOT EXISTS reservations (
     id VARCHAR(255) PRIMARY KEY,
     room_id VARCHAR(255) NOT NULL,
     guest_id VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'future',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (room_id) REFERENCES rooms(id),
-    FOREIGN KEY (guest_id) REFERENCES guests(id)
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS expenses (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY, -- SERIAL substitui AUTO_INCREMENT
     guest_id VARCHAR(255) NOT NULL,
     description VARCHAR(255) NOT NULL,
-    value DECIMAL(10, 2) NOT NULL,
+    value NUMERIC(10, 2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (guest_id) REFERENCES guests(id)
+    FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE CASCADE
 );

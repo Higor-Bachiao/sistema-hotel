@@ -33,7 +33,7 @@ export class HotelDatabase {
             checkIn: row.check_in,
             checkOut: row.check_out,
             guests: row.num_guests,
-            expenses: [], // Será carregado separadamente se necessário
+            expenses: [],
           }
         : undefined,
     }))
@@ -43,7 +43,7 @@ export class HotelDatabase {
     const id = `room_${Date.now()}`
     const query = `
       INSERT INTO rooms (id, number, type, capacity, beds, price, amenities, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `
     await executeQuery(query, [
       id,
@@ -59,51 +59,48 @@ export class HotelDatabase {
   }
 
   static async updateRoomStatus(roomId: string, status: string, guest?: Guest): Promise<void> {
-    const connection = await getConnection()
+    const client = await getConnection()
     try {
-      await connection.beginTransaction()
+      await client.query("BEGIN")
 
       // Atualizar status do quarto
-      await connection.execute("UPDATE rooms SET status = ? WHERE id = ?", [status, roomId])
+      await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [status, roomId])
 
       if (status === "occupied" && guest) {
-        // Criar guest
         const guestId = `guest_${Date.now()}`
-        await connection.execute(
+        await client.query(
           `
           INSERT INTO guests (id, name, email, phone, cpf, check_in, check_out, num_guests)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
           [guestId, guest.name, guest.email, guest.phone, guest.cpf, guest.checkIn, guest.checkOut, guest.guests],
         )
 
-        // Criar reserva ativa
         const reservationId = `res_${Date.now()}`
-        await connection.execute(
+        await client.query(
           `
           INSERT INTO reservations (id, room_id, guest_id, status)
-          VALUES (?, ?, ?, 'active')
+          VALUES ($1, $2, $3, 'active')
         `,
           [reservationId, roomId, guestId],
         )
       } else if (status === "available") {
-        // Liberar quarto - marcar reserva como completed
-        await connection.execute(
+        await client.query(
           `
           UPDATE reservations 
           SET status = 'completed' 
-          WHERE room_id = ? AND status = 'active'
+          WHERE room_id = $1 AND status = 'active'
         `,
           [roomId],
         )
       }
 
-      await connection.commit()
+      await client.query("COMMIT")
     } catch (error) {
-      await connection.rollback()
+      await client.query("ROLLBACK")
       throw error
     } finally {
-      await connection.end()
+      client.release()
     }
   }
 
@@ -114,7 +111,7 @@ export class HotelDatabase {
       FROM reservations r
       JOIN guests g ON r.guest_id = g.id
       JOIN rooms ON r.room_id = rooms.id
-      WHERE r.status = 'future' AND g.check_in > CURDATE()
+      WHERE r.status = 'future' AND g.check_in > CURRENT_DATE
       ORDER BY g.check_in
     `
     const results = (await executeQuery(query)) as any[]
@@ -136,22 +133,19 @@ export class HotelDatabase {
   }
 
   static async createReservation(roomId: string, guest: Guest): Promise<string> {
-    const connection = await getConnection()
-
+    const client = await getConnection()
     try {
-      await connection.beginTransaction()
+      await client.query("BEGIN")
 
-      // Criar guest
       const guestId = `guest_${Date.now()}`
-      await connection.execute(
+      await client.query(
         `
         INSERT INTO guests (id, name, email, phone, cpf, check_in, check_out, num_guests)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `,
         [guestId, guest.name, guest.email, guest.phone, guest.cpf, guest.checkIn, guest.checkOut, guest.guests],
       )
 
-      // Verificar se é reserva futura ou ativa
       const checkInDate = new Date(guest.checkIn)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
@@ -159,33 +153,31 @@ export class HotelDatabase {
 
       const status = checkInDate <= today ? "active" : "future"
 
-      // Criar reserva
       const reservationId = `res_${Date.now()}`
-      await connection.execute(
+      await client.query(
         `
         INSERT INTO reservations (id, room_id, guest_id, status)
-        VALUES (?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4)
       `,
         [reservationId, roomId, guestId, status],
       )
 
-      // Se for reserva ativa, atualizar status do quarto
       if (status === "active") {
-        await connection.execute("UPDATE rooms SET status = 'occupied' WHERE id = ?", [roomId])
+        await client.query("UPDATE rooms SET status = 'occupied' WHERE id = $1", [roomId])
       }
 
-      await connection.commit()
+      await client.query("COMMIT")
       return reservationId
     } catch (error) {
-      await connection.rollback()
+      await client.query("ROLLBACK")
       throw error
     } finally {
-      await connection.end()
+      client.release()
     }
   }
 
   static async cancelReservation(reservationId: string): Promise<void> {
-    await executeQuery("UPDATE reservations SET status = 'cancelled' WHERE id = ?", [reservationId])
+    await executeQuery("UPDATE reservations SET status = 'cancelled' WHERE id = $1", [reservationId])
   }
 
   // ==================== EXPENSES ====================
@@ -193,14 +185,14 @@ export class HotelDatabase {
     await executeQuery(
       `
       INSERT INTO expenses (guest_id, description, value)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
     `,
       [guestId, expense.description, expense.value],
     )
   }
 
   static async getGuestExpenses(guestId: string): Promise<Expense[]> {
-    const results = (await executeQuery("SELECT description, value FROM expenses WHERE guest_id = ?", [
+    const results = (await executeQuery("SELECT description, value FROM expenses WHERE guest_id = $1", [
       guestId,
     ])) as any[]
 
@@ -212,35 +204,29 @@ export class HotelDatabase {
 
   // ==================== MAINTENANCE ====================
   static async activateFutureReservations(): Promise<void> {
-    const connection = await getConnection()
+    const client = await getConnection()
     try {
-      await connection.beginTransaction()
+      await client.query("BEGIN")
 
-      // Buscar reservas que devem ser ativadas hoje
-      const [reservations] = await connection.execute(`
+      const { rows: reservations } = await client.query(`
         SELECT r.id, r.room_id
         FROM reservations r
         JOIN guests g ON r.guest_id = g.id
-        WHERE r.status = 'future' AND g.check_in <= CURDATE()
+        WHERE r.status = 'future' AND g.check_in <= CURRENT_DATE
       `)
 
-      const reservationsArray = reservations as any[]
-
-      for (const reservation of reservationsArray) {
-        // Ativar reserva
-        await connection.execute("UPDATE reservations SET status = 'active' WHERE id = ?", [reservation.id])
-
-        // Ocupar quarto
-        await connection.execute("UPDATE rooms SET status = 'occupied' WHERE id = ?", [reservation.room_id])
+      for (const reservation of reservations) {
+        await client.query("UPDATE reservations SET status = 'active' WHERE id = $1", [reservation.id])
+        await client.query("UPDATE rooms SET status = 'occupied' WHERE id = $1", [reservation.room_id])
       }
 
-      await connection.commit()
-      console.log(`✅ ${reservationsArray.length} reservas ativadas automaticamente`)
+      await client.query("COMMIT")
+      console.log(`✅ ${reservations.length} reservas ativadas automaticamente`)
     } catch (error) {
-      await connection.rollback()
+      await client.query("ROLLBACK")
       throw error
     } finally {
-      await connection.end()
+      client.release()
     }
   }
 }
