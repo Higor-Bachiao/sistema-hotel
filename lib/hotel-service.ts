@@ -23,7 +23,7 @@ export class HotelService {
     const id = Date.now().toString()
     const query = `
       INSERT INTO rooms (id, number, type, capacity, beds, price, amenities, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `
     await executeQuery(query, [
       id,
@@ -40,16 +40,18 @@ export class HotelService {
 
   static async updateRoom(id: string, updates: Partial<Room>): Promise<void> {
     const fields = Object.keys(updates)
-      .map((key) => `${key} = ?`)
+      .map((key, idx) => `${key} = $${idx + 1}`)
       .join(", ")
-    const values = Object.values(updates).map((value) => (value === "amenities" ? JSON.stringify(value) : value))
+    const values = Object.entries(updates).map(([key, value]) =>
+      key === "amenities" ? JSON.stringify(value) : value
+    )
 
-    const query = `UPDATE rooms SET ${fields} WHERE id = ?`
+    const query = `UPDATE rooms SET ${fields} WHERE id = $${values.length + 1}`
     await executeQuery(query, [...values, id])
   }
 
   static async deleteRoom(id: string): Promise<void> {
-    await executeQuery("DELETE FROM rooms WHERE id = ?", [id])
+    await executeQuery("DELETE FROM rooms WHERE id = $1", [id])
   }
 
   // RESERVATIONS
@@ -59,7 +61,7 @@ export class HotelService {
       FROM reservations r
       JOIN guests g ON r.guest_id = g.id
       JOIN rooms ON r.room_id = rooms.id
-      WHERE r.status = 'future' AND g.check_in > CURDATE()
+      WHERE r.status = 'future' AND g.check_in > CURRENT_DATE
       ORDER BY g.check_in
     `
     const results = (await executeQuery(query)) as any[]
@@ -81,17 +83,17 @@ export class HotelService {
   }
 
   static async createReservation(reservation: Omit<Reservation, "id" | "createdAt">): Promise<string> {
-    const connection = await getConnection()
+    const client = await getConnection()
 
     try {
-      await connection.beginTransaction()
+      await client.query("BEGIN")
 
       // Criar guest
       const guestId = Date.now().toString()
-      await connection.execute(
+      await client.query(
         `
         INSERT INTO guests (id, name, email, phone, cpf, check_in, check_out, num_guests)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `,
         [
           guestId,
@@ -113,31 +115,31 @@ export class HotelService {
 
       const status = checkInDate <= today ? "active" : "future"
 
-      await connection.execute(
+      await client.query(
         `
         INSERT INTO reservations (id, room_id, guest_id, status)
-        VALUES (?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4)
       `,
         [reservationId, reservation.roomId, guestId, status],
       )
 
       // Atualizar status do quarto se necessário
       if (status === "active") {
-        await connection.execute("UPDATE rooms SET status = ? WHERE id = ?", ["occupied", reservation.roomId])
+        await client.query("UPDATE rooms SET status = $1 WHERE id = $2", ["occupied", reservation.roomId])
       }
 
-      await connection.commit()
+      await client.query("COMMIT")
       return reservationId
     } catch (error) {
-      await connection.rollback()
+      await client.query("ROLLBACK")
       throw error
     } finally {
-      await connection.end()
+      client.release()
     }
   }
 
   static async cancelReservation(reservationId: string): Promise<void> {
-    await executeQuery("UPDATE reservations SET status = ? WHERE id = ?", ["cancelled", reservationId])
+    await executeQuery("UPDATE reservations SET status = $1 WHERE id = $2", ["cancelled", reservationId])
   }
 
   // EXPENSES
@@ -145,14 +147,14 @@ export class HotelService {
     await executeQuery(
       `
       INSERT INTO expenses (guest_id, description, value)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
     `,
       [guestId, expense.description, expense.value],
     )
   }
 
   static async getGuestExpenses(guestId: string): Promise<Expense[]> {
-    const results = (await executeQuery("SELECT description, value FROM expenses WHERE guest_id = ?", [
+    const results = (await executeQuery("SELECT description, value FROM expenses WHERE guest_id = $1", [
       guestId,
     ])) as any[]
 
