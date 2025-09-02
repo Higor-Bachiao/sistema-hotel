@@ -4,7 +4,7 @@ const { Pool } = pkg
 const dbConfig = {
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "postgres",
-  password: process.env.DB_PASSWORD || "",
+  password: process.env.DB_PASSWORD || "Higao12!",
   database: process.env.DB_NAME || "hotel",
   port: Number.parseInt(process.env.DB_PORT || "5432"),
   ssl: {
